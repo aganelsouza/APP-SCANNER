@@ -25,6 +25,8 @@ export async function sendCode(payload: SendPayload): Promise<SendResult> {
   try {
     const res = await fetch(apiUrl, {
       method: 'POST',
+      credentials: 'same-origin',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
