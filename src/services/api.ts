@@ -23,20 +23,16 @@ export type SendResult = { ok: true } | { ok: false; message: string }
 export async function sendCode(payload: SendPayload): Promise<SendResult> {
   const apiUrl = getApiUrl()
   try {
-    const res = await fetch(apiUrl, {
+    await fetch(apiUrl, {
       method: 'POST',
-      credentials: 'same-origin',
-      mode: 'no-cors',
+      mode: 'no-cors', // Evita erros CORS, mas não permite ler a resposta
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
-    if (!res.ok) {
-      const text = await res.text()
-      return { ok: false, message: text || `Erro ${res.status}` }
-    }
     return { ok: true }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Falha na rede'
-    return { ok: false, message }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+    console.error('Erro ao enviar código:', errorMessage)
+    return { ok: false, message: 'Falha ao enviar o código. Tente novamente.' }
   }
-}
+  }
