@@ -40,7 +40,7 @@ export async function validateLicense(licenseKey: string): Promise<{ ok: true; s
   const apiUrl = getApiUrl()
   try {
     // Chamamos o Apps Script via GET para validação
-    const response = await fetch(`${apiUrl}?licenseKey=${licenseKey}&action=validate`)
+    const response = await fetch(`${apiUrl}?licenseKey=${licenseKey}&action=validate`) // Adicionado action=validate
     const data = await response.json()
     
     if (data.ok) {

@@ -14,7 +14,8 @@ export default function App() {
   const [terminalId, setTerminalId] = useState<string | null>(localStorage.getItem('scanner_terminal_id'))
   const [maxTerminals, setMaxTerminals] = useState<number>(parseInt(localStorage.getItem('scanner_max_terminals') || '0'))
 
-  const [isLicensedUser, setIsLicensedUser] = useState<boolean>(!!licenseKey && !!clientSheetId)
+  // Calculamos isLicensedUser diretamente dos dados existentes.
+  const isLicensedUser = !!(licenseKey && clientSheetId)
   const [isLoadingLicense, setIsLoadingLicense] = useState(false)
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -30,8 +31,8 @@ export default function App() {
       localStorage.setItem('scanner_max_terminals', result.maxTerminals.toString())
       setClientSheetId(result.sheetId)
       setMaxTerminals(result.maxTerminals)
-      setIsLicensedUser(true)
     } else {
+      localStorage.removeItem('scanner_license')
       // Clear any old license info if validation fails
       alert(result.message)
     }
@@ -70,8 +71,7 @@ export default function App() {
       setLastMessage(result.message)
       setTimeout(() => setStatus('idle'), 2500)
     }
-  }, [licenseKey, clientSheetId, terminalId]) // Removido o useEffect que setava terminalId automaticamente
-
+  }, [licenseKey, clientSheetId, terminalId])
   // If not a licensed user, show the license activation screen
   if (!isLicensedUser) {
     return (
