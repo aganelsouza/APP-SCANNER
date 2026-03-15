@@ -1,28 +1,84 @@
 import { useCallback, useState } from 'react'
 import { Scanner } from './components/Scanner'
-import { sendCode } from './services/api'
+import { sendCode, validateLicense } from './services/api'
+import { ShieldCheck, Key } from 'lucide-react'
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error'
 
 export default function App() {
   const [status, setStatus] = useState<SendStatus>('idle')
   const [lastMessage, setLastMessage] = useState<string>('')
+  const [license, setLicense] = useState<string>(localStorage.getItem('scanner_license') || '')
+  const [isRegistered, setIsRegistered] = useState<boolean>(!!localStorage.getItem('scanner_license'))
+  const [isLoadingLicense, setIsLoadingLicense] = useState(false)
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!license.trim()) return
+    
+    setIsLoadingLicense(true)
+    const result = await validateLicense(license)
+    
+    if (result.ok) {
+      localStorage.setItem('scanner_license', license)
+      localStorage.setItem('scanner_sheet_id', result.sheetId)
+      setIsRegistered(true)
+    } else {
+      alert(result.message)
+    }
+    setIsLoadingLicense(false)
+  }
 
   const handleScan = useCallback(async (code: string) => {
     setStatus('sending')
     setLastMessage('')
     const timestamp = new Date().toISOString()
-    const result = await sendCode({ code, timestamp })
+    
+    const result = await sendCode({ 
+      code, 
+      timestamp, 
+      nota: '', 
+      viatura: 'V-01', 
+      utd: 'UTD-LOG',
+      licenseKey: license 
+    })
+
     if (result.ok) {
       setStatus('success')
       setLastMessage(`Enviado: ${code}`)
-      setTimeout(() => setStatus('idle'), 2500)
+      setTimeout(() => setStatus('idle'), 2000)
     } else {
       setStatus('error')
       setLastMessage(result.message)
-      setTimeout(() => setStatus('idle'), 4000)
+      setTimeout(() => setStatus('idle'), 3000)
     }
-  }, [])
+  }, [license])
+
+  if (!isRegistered) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-6">
+        <form onSubmit={handleRegister} className="w-full max-w-sm bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl text-center">
+          <ShieldCheck className="mx-auto mb-4 text-amber-500" size={48} />
+          <h2 className="text-xl font-bold mb-2">Ativar Scanner</h2>
+          <p className="text-slate-400 text-sm mb-6">Insira sua licença para configurar seu banco de dados no Excel/Sheets.</p>
+          <div className="relative mb-4">
+            <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <input 
+              type="text" 
+              value={license}
+              onChange={(e) => setLicense(e.target.value.toUpperCase())}
+              placeholder="CHAVE-LICENCA"
+              className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 pl-10 pr-4 outline-none focus:border-amber-500"
+              required
+            />
+          </div>
+          <button disabled={isLoadingLicense} className="w-full bg-amber-600 hover:bg-amber-500 py-2 rounded-lg font-semibold transition-all">
+            {isLoadingLicense ? 'Validando...' : 'Ativar Agora'}
+          </button>
+        </form>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center py-6 px-4 pb-10">
