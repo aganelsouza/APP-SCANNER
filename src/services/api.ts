@@ -17,14 +17,26 @@ export type SendPayload = {
   viatura: string
   utd: string
   licenseKey: string
+  // Adicionados para o fluxo de múltiplos terminais
+  clientSheetId: string
+  terminalId: string
 }
+
+export type TerminalRegistrationPayload = {
+  clientSheetId: string;
+  terminalName: string;
+  viatura: string;
+  utd: string;
+}
+
+export type TerminalRegistrationResult = { ok: true; terminalId: string } | { ok: false; message: string }
 
 export type SendResult = { ok: true } | { ok: false; message: string }
 
 /**
  * Valida a licença e retorna o ID da planilha (Database) do cliente.
  */
-export async function validateLicense(licenseKey: string): Promise<{ ok: true; sheetId: string } | { ok: false; message: string }> {
+export async function validateLicense(licenseKey: string): Promise<{ ok: true; sheetId: string; maxTerminals: number } | { ok: false; message: string }> {
   const apiUrl = getApiUrl()
   try {
     // Chamamos o Apps Script via GET para validação
@@ -32,7 +44,8 @@ export async function validateLicense(licenseKey: string): Promise<{ ok: true; s
     const data = await response.json()
     
     if (data.ok) {
-      return { ok: true, sheetId: data.sheetId }
+      // O backend agora deve retornar maxTerminals
+      return { ok: true, sheetId: data.sheetId, maxTerminals: data.maxTerminals }
     }
     return { ok: false, message: data.message || 'Licença inválida ou expirada.' }
   } catch (error) {
@@ -44,11 +57,14 @@ export async function validateLicense(licenseKey: string): Promise<{ ok: true; s
 /**
  * Envia o código lido para a API (POST JSON).
  */
-export async function sendCode(payload: SendPayload): Promise<SendResult> {
+export async function sendCode(payload: SendPayload): Promise<SendResult> { // SendPayload já inclui clientSheetId e terminalId
   const apiUrl = getApiUrl()
   try {
-    const response = await fetch(apiUrl, {
+    const response = await fetch(`${apiUrl}?action=sendCode`, { // Adicionamos o parâmetro 'action'
       method: 'POST',
+      // mode: 'no-cors', // Removido para permitir a leitura da resposta e tratamento de erros
+      // O Apps Script precisa configurar o CORS corretamente.
+      // Caso contrário, pode ser necessário adicionar `Access-Control-Allow-Origin: *` no Apps Script.
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
@@ -61,4 +77,23 @@ export async function sendCode(payload: SendPayload): Promise<SendResult> {
     console.error('Erro ao enviar o código:', errorMessage)
     return { ok: false, message: 'Falha ao enviar o código. Tente novamente.' }
   }
+}
+
+/**
+ * Registra um novo terminal para um usuário licenciado.
+ */
+export async function registerTerminal(payload: TerminalRegistrationPayload): Promise<TerminalRegistrationResult> {
+  const apiUrl = getApiUrl()
+  try {
+    const response = await fetch(`${apiUrl}?action=registerTerminal`, { // Novo parâmetro 'action'
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const data = await response.json()
+    return data as TerminalRegistrationResult;
+  } catch (error) {
+    console.error('Erro ao registrar terminal:', error)
+    return { ok: false, message: 'Erro ao registrar terminal. Tente novamente.' }
   }
+}

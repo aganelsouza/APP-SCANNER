@@ -2,28 +2,37 @@ import { useCallback, useState } from 'react'
 import { Scanner } from './components/Scanner'
 import { sendCode, validateLicense } from './services/api'
 import { ShieldCheck, Key } from 'lucide-react'
+import { TerminalRegistration } from './components/TerminalRegistration'
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error'
 
 export default function App() {
   const [status, setStatus] = useState<SendStatus>('idle')
   const [lastMessage, setLastMessage] = useState<string>('')
-  const [license, setLicense] = useState<string>(localStorage.getItem('scanner_license') || '')
-  const [isRegistered, setIsRegistered] = useState<boolean>(!!localStorage.getItem('scanner_license'))
+  const [licenseKey, setLicenseKey] = useState<string>(localStorage.getItem('scanner_license') || '')
+  const [clientSheetId, setClientSheetId] = useState<string | null>(localStorage.getItem('scanner_sheet_id'))
+  const [terminalId, setTerminalId] = useState<string | null>(localStorage.getItem('scanner_terminal_id'))
+  const [maxTerminals, setMaxTerminals] = useState<number>(parseInt(localStorage.getItem('scanner_max_terminals') || '0'))
+
+  const [isLicensedUser, setIsLicensedUser] = useState<boolean>(!!licenseKey && !!clientSheetId)
   const [isLoadingLicense, setIsLoadingLicense] = useState(false)
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!license.trim()) return
+    if (!licenseKey.trim()) return
     
     setIsLoadingLicense(true)
-    const result = await validateLicense(license)
+    const result = await validateLicense(licenseKey)
     
     if (result.ok) {
-      localStorage.setItem('scanner_license', license)
+      localStorage.setItem('scanner_license', licenseKey)
       localStorage.setItem('scanner_sheet_id', result.sheetId)
-      setIsRegistered(true)
+      localStorage.setItem('scanner_max_terminals', result.maxTerminals.toString())
+      setClientSheetId(result.sheetId)
+      setMaxTerminals(result.maxTerminals)
+      setIsLicensedUser(true)
     } else {
+      // Clear any old license info if validation fails
       alert(result.message)
     }
     setIsLoadingLicense(false)
@@ -34,27 +43,37 @@ export default function App() {
     setLastMessage('')
     const timestamp = new Date().toISOString()
     
+    if (!clientSheetId || !terminalId) {
+      setLastMessage('Erro: Terminal não registrado ou licença inválida.')
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 3000)
+      return
+    }
+
     const result = await sendCode({ 
       code, 
       timestamp, 
       nota: '', 
       viatura: 'V-01', 
       utd: 'UTD-LOG',
-      licenseKey: license 
+      licenseKey: licenseKey,
+      clientSheetId: clientSheetId,
+      terminalId: terminalId,
     })
 
     if (result.ok) {
       setStatus('success')
       setLastMessage(`Enviado: ${code}`)
-      setTimeout(() => setStatus('idle'), 2000)
+      setTimeout(() => setStatus('idle'), 1500)
     } else {
       setStatus('error')
       setLastMessage(result.message)
-      setTimeout(() => setStatus('idle'), 3000)
+      setTimeout(() => setStatus('idle'), 2500)
     }
-  }, [license])
+  }, [licenseKey, clientSheetId, terminalId]) // Removido o useEffect que setava terminalId automaticamente
 
-  if (!isRegistered) {
+  // If not a licensed user, show the license activation screen
+  if (!isLicensedUser) {
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-6">
         <form onSubmit={handleRegister} className="w-full max-w-sm bg-slate-800 p-8 rounded-2xl border border-slate-700 shadow-xl text-center">
@@ -65,8 +84,8 @@ export default function App() {
             <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
             <input 
               type="text" 
-              value={license}
-              onChange={(e) => setLicense(e.target.value.toUpperCase())}
+              value={licenseKey}
+              onChange={(e) => setLicenseKey(e.target.value.toUpperCase())}
               placeholder="CHAVE-LICENCA"
               className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 pl-10 pr-4 outline-none focus:border-amber-500"
               required
@@ -78,6 +97,11 @@ export default function App() {
         </form>
       </div>
     )
+  }
+
+  // If licensed but no terminal registered (e.g., a new terminal user scanning QR)
+  if (isLicensedUser && !terminalId) {
+    return <TerminalRegistration clientSheetId={clientSheetId!} setTerminalId={setTerminalId} maxTerminals={maxTerminals} />
   }
 
   return (
