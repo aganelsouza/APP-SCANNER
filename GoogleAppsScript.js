@@ -9,9 +9,13 @@ const CLIENT_DATA_SHEET_NAME = 'ScannerData';
 function doGet(e) {
   const action = e.parameter.action;
   const licenseKey = e.parameter.licenseKey;
+  const sheetId = e.parameter.sheetId;
 
   if (action === 'validate' && licenseKey) {
     return handleValidateLicense(licenseKey);
+  }
+  if (action === 'getSummary' && sheetId) {
+    return handleGetSummary(sheetId);
   }
   
   return createJsonResponse({ ok: false, message: 'Ação inválida ou parâmetros ausentes.' });
@@ -179,6 +183,23 @@ function handleSendCode(payload) {
     return createJsonResponse({ ok: true });
   } catch (error) {
     return createJsonResponse({ ok: false, message: `Erro ao salvar dados: ${error.message}` });
+  }
+}
+
+function handleGetSummary(clientSheetId) {
+  try {
+    const ss = SpreadsheetApp.openById(clientSheetId);
+    const sheet = ss.getSheetByName(CLIENT_DATA_SHEET_NAME);
+    if (!sheet) return createJsonResponse({ ok: false, message: 'Aba de dados não encontrada.' });
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data.shift(); // Remove cabeçalho
+    
+    // Retorna as últimas 20 leituras (invertendo para mostrar as mais recentes primeiro)
+    const latestData = data.reverse().slice(0, 20);
+    return createJsonResponse({ ok: true, data: latestData });
+  } catch (error) {
+    return createJsonResponse({ ok: false, message: error.message });
   }
 }
 

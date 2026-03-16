@@ -33,6 +33,9 @@ export type TerminalRegistrationResult = { ok: true; terminalId: string } | { ok
 
 export type SendResult = { ok: true } | { ok: false; message: string }
 
+// Representa uma linha da aba ScannerData: [Timestamp, TerminalID, Nota, Viatura, UTD, Code]
+export type SummaryRow = [string, string, string, string, string, string];
+
 /**
  * Valida a licença e retorna o ID da planilha (Database) do cliente.
  */
@@ -96,5 +99,18 @@ export async function registerTerminal(payload: TerminalRegistrationPayload): Pr
   } catch (error) {
     console.error('Erro ao registrar terminal:', error)
     return { ok: false, message: 'Erro ao registrar terminal. Tente novamente.' }
+  }
+}
+
+/**
+ * Busca o resumo das últimas leituras.
+ */
+export async function getSummary(sheetId: string): Promise<{ ok: true; data: SummaryRow[] } | { ok: false; message: string }> {
+  const apiUrl = getApiUrl()
+  try {
+    const response = await fetch(`${apiUrl}?sheetId=${sheetId}&action=getSummary`)
+    return await response.json()
+  } catch {
+    return { ok: false, message: 'Erro ao carregar resumo.' }
   }
 }
