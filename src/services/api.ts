@@ -62,10 +62,10 @@ export async function sendCode(payload: SendPayload): Promise<SendResult> { // S
   try {
     const response = await fetch(`${apiUrl}?action=sendCode`, { // Adicionamos o parâmetro 'action'
       method: 'POST',
-      // mode: 'no-cors', // Removido para permitir a leitura da resposta e tratamento de erros
-      // O Apps Script precisa configurar o CORS corretamente.
-      // Caso contrário, pode ser necessário adicionar `Access-Control-Allow-Origin: *` no Apps Script.
-      headers: { 'Content-Type': 'application/json' },
+      // Usamos text/plain para evitar o preflight do CORS (OPTIONS request) 
+      // que o Google Apps Script não suporta nativamente.
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload),
     })
     
@@ -87,7 +87,8 @@ export async function registerTerminal(payload: TerminalRegistrationPayload): Pr
   try {
     const response = await fetch(`${apiUrl}?action=registerTerminal`, { // Novo parâmetro 'action'
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload),
     })
     const data = await response.json()
