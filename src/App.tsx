@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { Scanner } from './components/Scanner'
 import { sendCode, validateLicense } from './services/api'
-import { ShieldCheck, Key } from 'lucide-react'
+import { ShieldCheck, Key, Share2, X } from 'lucide-react'
 import { TerminalRegistration } from './components/TerminalRegistration'
 
 type SendStatus = 'idle' | 'sending' | 'success' | 'error'
@@ -13,6 +13,25 @@ export default function App() {
   const [clientSheetId, setClientSheetId] = useState<string | null>(localStorage.getItem('scanner_sheet_id'))
   const [terminalId, setTerminalId] = useState<string | null>(localStorage.getItem('scanner_terminal_id'))
   const [maxTerminals, setMaxTerminals] = useState<number>(parseInt(localStorage.getItem('scanner_max_terminals') || '0'))
+  const [showInvite, setShowInvite] = useState(false)
+
+  // Detecta convite via URL (Deep Linking simplificado)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const inviteId = params.get('invite')
+    const inviteKey = params.get('key')
+
+    if (inviteId && inviteKey && !terminalId) {
+      localStorage.setItem('scanner_license', inviteKey)
+      localStorage.setItem('scanner_sheet_id', inviteId)
+      setLicenseKey(inviteKey)
+      setClientSheetId(inviteId)
+      
+      // Limpa a URL para não ficar com os parâmetros expostos
+      window.history.replaceState({}, document.title, window.location.pathname)
+      alert('Configurações de licença importadas! Agora registre seu terminal.')
+    }
+  }, [terminalId])
 
   // Calculamos isLicensedUser diretamente dos dados existentes.
   const isLicensedUser = !!(licenseKey && clientSheetId)
@@ -104,12 +123,47 @@ export default function App() {
     return <TerminalRegistration clientSheetId={clientSheetId!} setTerminalId={setTerminalId} maxTerminals={maxTerminals} />
   }
 
+  const inviteLink = `${window.location.origin}?invite=${clientSheetId}&key=${licenseKey}`
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center py-6 px-4 pb-10">
-      <header className="w-full max-w-md text-center mb-4">
-        <h1 className="text-xl font-bold text-white">Scanner Logístico</h1>
-        <p className="text-slate-400 text-sm mt-1">Aponte para o código de barras</p>
+      <header className="w-full max-w-md flex justify-between items-center mb-4 px-2">
+        <div className="text-left">
+          <h1 className="text-xl font-bold text-white">Scanner Logístico</h1>
+          <p className="text-slate-400 text-xs">Terminal: {terminalId}</p>
+        </div>
+        <button 
+          onClick={() => setShowInvite(true)}
+          className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full transition-colors border border-slate-700"
+          title="Conectar novo aparelho"
+        >
+          <Share2 size={20} className="text-amber-500" />
+        </button>
       </header>
+
+      {/* Modal de Convite */}
+      {showInvite && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="bg-slate-800 border border-slate-700 p-6 rounded-2xl max-w-sm w-full relative">
+            <button onClick={() => setShowInvite(false)} className="absolute right-4 top-4 text-slate-400 hover:text-white">
+              <X size={20} />
+            </button>
+            <h3 className="text-lg font-bold mb-4">Conectar Novo Aparelho</h3>
+            <p className="text-sm text-slate-400 mb-4">
+              Envie este link para o outro aparelho ou gere um QR Code com ele:
+            </p>
+            <div className="bg-slate-900 p-3 rounded-lg break-all text-xs font-mono border border-slate-700 mb-4">
+              {inviteLink}
+            </div>
+            <button 
+              onClick={() => { navigator.clipboard.writeText(inviteLink); alert('Link copiado!'); }}
+              className="w-full bg-amber-600 hover:bg-amber-500 py-2 rounded-lg font-semibold transition-all"
+            >
+              Copiar Link de Convite
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="w-full flex-1 flex flex-col items-center">
         <div className="w-full flex justify-center mb-4 min-h-[48px]">
